@@ -1,0 +1,52 @@
+#ifndef _TFT_SHIELD_18_H
+#define _TFT_SHIELD_18_H
+
+
+#ifdef USE_ADAFRUIT_SHIELD_V2
+#include "../Components/adafruit_seesaw/adafruit_seesaw.h"
+
+
+#define TFTSHIELD_ADDR 0x2E
+#define TFTSHIELD_RESET_PIN 3
+
+#define TFTSHIELD_BACKLIGHT_ON 0xFFFF
+#define TFTSHIELD_BACKLIGHT_OFF 0x0000
+
+/* Note: these joystick directions are defined relative to the
+ * shield oriented with display on left of joystick and SD card facing right
+ */
+
+/* Note: joystick activations are active low. */
+
+#define TFTSHIELD_BUTTON_UP_PIN 5
+#define TFTSHIELD_BUTTON_UP (1UL << TFTSHIELD_BUTTON_UP_PIN)
+
+#define TFTSHIELD_BUTTON_DOWN_PIN 8
+#define TFTSHIELD_BUTTON_DOWN (1UL << TFTSHIELD_BUTTON_DOWN_PIN)
+
+#define TFTSHIELD_BUTTON_LEFT_PIN 6
+#define TFTSHIELD_BUTTON_LEFT (1UL << TFTSHIELD_BUTTON_LEFT_PIN)
+
+#define TFTSHIELD_BUTTON_RIGHT_PIN 9
+#define TFTSHIELD_BUTTON_RIGHT (1UL << TFTSHIELD_BUTTON_RIGHT_PIN)
+
+#define TFTSHIELD_BUTTON_IN_PIN 7
+#define TFTSHIELD_BUTTON_IN (1UL << TFTSHIELD_BUTTON_IN_PIN)
+
+#define TFTSHIELD_BUTTON_1_PIN 10
+#define TFTSHIELD_BUTTON_1 (1UL << TFTSHIELD_BUTTON_1_PIN)
+
+#define TFTSHIELD_BUTTON_2_PIN 11
+#define TFTSHIELD_BUTTON_2 (1UL << TFTSHIELD_BUTTON_2_PIN)
+
+#define TFTSHIELD_BUTTON_3_PIN 14
+#define TFTSHIELD_BUTTON_3 (1UL << TFTSHIELD_BUTTON_3_PIN)
+
+#define TFTSHIELD_BUTTON_ALL                                                   \
+  (TFTSHIELD_BUTTON_UP | TFTSHIELD_BUTTON_DOWN | TFTSHIELD_BUTTON_LEFT |       \
+   TFTSHIELD_BUTTON_RIGHT | TFTSHIELD_BUTTON_IN | TFTSHIELD_BUTTON_1 |         \
+   TFTSHIELD_BUTTON_2 | TFTSHIELD_BUTTON_3)
+
+#endif
+
+#endif

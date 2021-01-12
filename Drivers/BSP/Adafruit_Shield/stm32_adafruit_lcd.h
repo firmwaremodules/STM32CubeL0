@@ -171,6 +171,26 @@ void     BSP_LCD_FillEllipse(int Xpos, int Ypos, int XRadius, int YRadius);
 void     BSP_LCD_DisplayOff(void);
 void     BSP_LCD_DisplayOn(void);
 
+#ifdef USE_ADAFRUIT_SHIELD_V2
+
+#define TFTSHIELD_BACKLIGHT_50_PERCENT      0x7FFF
+    
+/*!
+    @brief  set the intensity of the backlight
+    @param  value to set the backlight to,
+                        0x0000 = 0% 	(TFTSHIELD_BACKLIGHT_OFF)
+                          to
+                        0xFFFF = 100%	(TFTSHIELD_BACKLIGHT_ON)
+*/
+void BSP_LCD_SetBacklight(uint16_t level);
+
+/* Drive reset line to specified state. [0-low, 1=high]
+ * Display is active low!
+ */
+void BSP_LCD_Reset(uint8_t reset);
+
+#endif /* USE_ADAFRUIT_SHIELD_V2 */
+
 /**
   * @}
   */

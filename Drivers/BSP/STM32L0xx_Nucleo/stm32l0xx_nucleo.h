@@ -160,6 +160,42 @@ typedef enum
    conditions (interrupts routines ...). */   
 #define NUCLEO_SPIx_TIMEOUT_MAX                   1000
 #endif /* HAL_SPI_MODULE_ENABLED */
+
+#if defined(HAL_I2C_MODULE_ENABLED)
+/*##################### I2C1 ###################################*/
+/* User can use this section to tailor I2Cx instance used and associated resources */
+/* Definition for I2C1 Pins */
+#define NUCLEO_I2C1                        I2C1
+#define NUCLEO_I2C1_CLK_ENABLE()           __HAL_RCC_I2C1_CLK_ENABLE()
+#define NUCLEO_I2C1_CLK_DISABLE()          __HAL_RCC_I2C1_CLK_DISABLE()
+#define NUCLEO_I2C1_FORCE_RESET()          __HAL_RCC_I2C1_FORCE_RESET()
+#define NUCLEO_I2C1_RELEASE_RESET()        __HAL_RCC_I2C1_RELEASE_RESET()  
+
+#define NUCLEO_I2C1_SCL_PIN                GPIO_PIN_8    /* PB.8 */
+#define NUCLEO_I2C1_SDA_PIN                GPIO_PIN_9    /* PB.9 */
+
+#define NUCLEO_I2C1_GPIO_PORT              GPIOB      /* GPIOB */
+#define NUCLEO_I2C1_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOB_CLK_ENABLE()
+#define NUCLEO_I2C1_GPIO_CLK_DISABLE()     __HAL_RCC_GPIOB_CLK_DISABLE() 
+#define NUCLEO_I2C1_SCL_SDA_AF             GPIO_AF4_I2C1
+
+/* Maximum Timeout values for flags waiting loops. These timeouts are not based
+   on accurate values, they just guarantee that the application will not remain
+   stuck if the I2C communication is corrupted.
+   You may modify these timeout values depending on CPU frequency and application
+   conditions (interrupts routines ...). */
+#define NUCLEO_I2C1_TIMEOUT_MAX            1000
+
+/* I2C TIMING is calculated in case of the I2C Clock source is the SYSCLK = 32 MHz */
+#define I2C_TIMING_100KHZ_SLEW           0x10A13E56 /* 100 kHz with analog Filter ON, Rise Time 400ns, Fall Time 100ns */ 
+#define I2C_TIMING_100KHZ                0x009080B5 /* 100 KHz speed (Rise time = 50ns, Fall time = 10ns) */
+#define I2C_TIMING_400KHZ_SLEW           0x00B1112E /* 400 kHz with analog Filter ON, Rise Time 250ns, Fall Time 100ns */     
+
+#define I2C1_TIMING                      I2C_TIMING_100KHZ_SLEW
+
+#endif /* HAL_I2C_MODULE_ENABLED */
+
+
 /**
   * @}
   */
@@ -247,7 +283,7 @@ void             BSP_LED_Toggle(Led_TypeDef Led);
 void             BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef ButtonMode);
 void             BSP_PB_DeInit(Button_TypeDef Button);
 uint32_t         BSP_PB_GetState(Button_TypeDef Button);                
-#if defined(HAL_ADC_MODULE_ENABLED)
+#if defined(HAL_ADC_MODULE_ENABLED) || defined(USE_ADAFRUIT_SHIELD_V2)
 uint8_t          BSP_JOY_Init(void);
 JOYState_TypeDef BSP_JOY_GetState(void);
 void             BSP_JOY_DeInit(void);

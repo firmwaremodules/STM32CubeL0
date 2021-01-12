@@ -70,6 +70,7 @@ EndDependencies */
     
 /* Includes ------------------------------------------------------------------*/
 #include "stm32_adafruit_lcd.h"
+#include "stm32_adafruit_shield.h"
 #include "../../../Utilities/Fonts/fonts.h"
 #include "../../../Utilities/Fonts/font24.c"
 #include "../../../Utilities/Fonts/font20.c"
@@ -145,6 +146,22 @@ static void SetDisplayWindow(uint16_t Xpos, uint16_t Ypos, uint16_t Width, uint1
   */ 
 
 
+#ifdef USE_ADAFRUIT_SHIELD_V2
+
+void BSP_LCD_SetBacklight(uint16_t level)
+{
+    uint8_t cmd[] = { 0x00, (uint8_t)(level >> 8), (uint8_t)level };
+    Adafruit_seesaw_write(SEESAW_TIMER_BASE, SEESAW_TIMER_PWM, cmd, 3);
+}
+
+void BSP_LCD_Reset(uint8_t reset)
+{
+    Adafruit_seesaw_digitalWrite(TFTSHIELD_RESET_PIN, reset);
+}
+
+#endif
+
+
 /** @defgroup STM32_ADAFRUIT_LCD_Private_Functions
   * @{
   */
@@ -164,6 +181,26 @@ uint8_t BSP_LCD_Init(void)
   DrawProp.TextColor = 0x0000;
   
   lcd_drv = &st7735_drv;
+
+#ifdef USE_ADAFRUIT_SHIELD_V2
+  /* Enable seesaw for backlight and reset control */
+  if (Adafruit_seesaw_init(TFTSHIELD_ADDR, true) == true)
+  {
+      /* Initialize seesaw IO */
+    Adafruit_seesaw_pinMode(TFTSHIELD_RESET_PIN, OUTPUT);
+    Adafruit_seesaw_pinModeBulk(TFTSHIELD_BUTTON_ALL, INPUT_PULLUP);
+
+    BSP_LCD_SetBacklight(TFTSHIELD_BACKLIGHT_ON);
+
+    /* Bring reset (active low) high */
+    BSP_LCD_Reset(1);
+
+    ret = LCD_OK;
+  }
+
+#else
+  ret = LCD_OK;
+#endif
   
   /* LCD Init */   
   lcd_drv->Init();
@@ -173,8 +210,6 @@ uint8_t BSP_LCD_Init(void)
   
   /* Initialize the font */
   BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
-  
-  ret = LCD_OK;
   
   return ret;
 }

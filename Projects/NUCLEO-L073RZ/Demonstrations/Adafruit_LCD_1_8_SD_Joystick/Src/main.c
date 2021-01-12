@@ -60,7 +60,7 @@ void SystemClock_Config(void);
 static void LED2_Blink(void);
 static ShieldStatus TFT_ShieldDetect(void);
 static void SDCard_Config(void);
-static void TFT_DisplayErrorMessage(uint8_t message);
+static void TFT_DisplayErrorMessage(uint8_t message, int res);
 static void TFT_DisplayMenu(void);
 static void TFT_DisplayImages(void);
 
@@ -86,16 +86,19 @@ int main(void)
   
   /* Configure the system clock = 32 MHz */
   SystemClock_Config();
-  
+
+#if USE_ADAFRUIT_SHIELD_V2
+  if (BSP_LCD_Init() == LCD_OK)
+  {
+#else
   /* Check the availability of adafruit 1.8" TFT shield on top of STM32NUCLEO
-     board. This is done by reading the state of IO PB.00 pin (mapped to JoyStick
-     available on adafruit 1.8" TFT shield). If the state of PB.00 is high then
-     the adafruit 1.8" TFT shield is available. */  
+     board. */  
   if(TFT_ShieldDetect() == SHIELD_DETECTED)
   {
     /* Initialize the LCD */
     BSP_LCD_Init();
-    
+#endif
+
     /* Configure SD card */
     SDCard_Config(); 
     
@@ -294,12 +297,12 @@ static void TFT_DisplayImages(void)
     if(res == FR_NO_FILESYSTEM)
     {
       /* Display message: SD card not FAT formated */
-      TFT_DisplayErrorMessage(SD_CARD_NOT_FORMATTED);    
+      TFT_DisplayErrorMessage(SD_CARD_NOT_FORMATTED, res);    
     }
     else
     {
       /* Display message: Fail to open directory */
-      TFT_DisplayErrorMessage(SD_CARD_OPEN_FAIL);  
+      TFT_DisplayErrorMessage(SD_CARD_OPEN_FAIL, res);  
     }
   }
   
@@ -342,7 +345,7 @@ static void TFT_DisplayImages(void)
       if (checkstatus == 1)
       {
         /* Display message: File not supported */
-        TFT_DisplayErrorMessage(SD_CARD_FILE_NOT_SUPPORTED);
+        TFT_DisplayErrorMessage(SD_CARD_FILE_NOT_SUPPORTED, 0);
       }
 
       bmpcounter++;
@@ -378,7 +381,7 @@ static void TFT_DisplayImages(void)
         if(checkstatus == 1)
         {
           /* Display message: File not supported */
-          TFT_DisplayErrorMessage(SD_CARD_FILE_NOT_SUPPORTED); 
+          TFT_DisplayErrorMessage(SD_CARD_FILE_NOT_SUPPORTED, 0); 
         }
         joystickstatus = JOY_NONE;
         JoystickValue = 2;          
@@ -405,7 +408,7 @@ static void TFT_DisplayImages(void)
         if (checkstatus == 1)
         {
           /* Display message: File not supported */
-          TFT_DisplayErrorMessage(SD_CARD_FILE_NOT_SUPPORTED);
+          TFT_DisplayErrorMessage(SD_CARD_FILE_NOT_SUPPORTED, 0);
         }
         joystickstatus = JOY_NONE;
         JoystickValue = 2;
@@ -428,13 +431,19 @@ static void SDCard_Config(void)
     /* Initialize the SD mounted on adafruit 1.8" TFT shield */
     if(BSP_SD_Init() != MSD_OK)
     {
-      TFT_DisplayErrorMessage(BSP_SD_INIT_FAILED);
+      TFT_DisplayErrorMessage(BSP_SD_INIT_FAILED, 0);
     }  
+
+    SD_CardInfo CardInfo;
+    BSP_SD_GetCardInfo(&CardInfo);
+    char buf[12];
+    sprintf(buf, " %lu", CardInfo.CardCapacity);
+    BSP_LCD_DisplayStringAtLine(8, (uint8_t*)buf);
     
     /* Check the mounted device */
     if(f_mount(&SD_FatFs, (TCHAR const*)"/", 0) != FR_OK)
     {
-      TFT_DisplayErrorMessage(FATFS_NOT_MOUNTED);
+      TFT_DisplayErrorMessage(FATFS_NOT_MOUNTED, 0);
     }  
     else
     {
@@ -457,7 +466,7 @@ static void SDCard_Config(void)
   *     @arg FATFS_NOT_MOUNTED: FatFs is not mounted
   * @retval None
   */
-static void TFT_DisplayErrorMessage(uint8_t message)
+static void TFT_DisplayErrorMessage(uint8_t message, int res)
 {
   /* LCD Clear */
   BSP_LCD_Clear(LCD_COLOR_WHITE); 
@@ -495,7 +504,10 @@ static void TFT_DisplayErrorMessage(uint8_t message)
     BSP_LCD_DisplayStringAtLine(5, (uint8_t*)"                   ");
     BSP_LCD_DisplayStringAtLine(6, (uint8_t*)" Open directory    ");
     BSP_LCD_DisplayStringAtLine(7, (uint8_t*)" fails.            ");
-    BSP_LCD_DisplayStringAtLine(8, (uint8_t*)"                   ");
+    char buf[8];
+    sprintf(buf, " %d", res);
+    //BSP_LCD_DisplayStringAtLine(8, (uint8_t*)"                   ");
+    BSP_LCD_DisplayStringAtLine(8, (uint8_t*)buf);
     while(1)
     {
     }     

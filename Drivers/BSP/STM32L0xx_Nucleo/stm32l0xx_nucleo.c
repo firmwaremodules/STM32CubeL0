@@ -93,6 +93,11 @@ uint32_t SpixTimeout = NUCLEO_SPIx_TIMEOUT_MAX; /*<! Value of Timeout when SPI c
 static SPI_HandleTypeDef hnucleo_Spi;
 #endif /* HAL_SPI_MODULE_ENABLED */
 
+#ifdef HAL_I2C_MODULE_ENABLED
+uint32_t I2cxTimeout = NUCLEO_I2C1_TIMEOUT_MAX; /*<! Value of Timeout when I2C communication fails */
+static I2C_HandleTypeDef hnucleo_I2c1;
+#endif /* HAL_I2C_MODULE_ENABLED */
+
 #ifdef HAL_ADC_MODULE_ENABLED
 static ADC_HandleTypeDef hnucleo_Adc;
 /* ADC channel configuration structure declaration */
@@ -130,6 +135,23 @@ void                      LCD_IO_WriteMultipleData(uint8_t *pData, uint32_t Size
 void                      LCD_IO_WriteReg(uint8_t LCDReg);
 void                      LCD_Delay(uint32_t delay);
 #endif /* HAL_SPI_MODULE_ENABLED */
+
+#ifdef HAL_I2C_MODULE_ENABLED
+/* I2C1 bus function */
+/* Link function for I2C SEESAW peripheral */
+static void               I2C1_Init(void);
+static void               I2C1_DeInit(void);
+static void               I2C1_Error(void);
+static void               I2C1_MspInit(I2C_HandleTypeDef* hi2c);
+static void               I2C1_MspDeInit(I2C_HandleTypeDef* hi2c);
+static void               I2C1_Write(uint8_t Addr, uint16_t Reg, uint16_t RegSize, uint8_t Value);
+static uint8_t            I2C1_Read(uint8_t Addr, uint16_t Reg, uint16_t RegSize);
+static HAL_StatusTypeDef  I2C1_WriteBuffer(uint8_t Addr, uint16_t Reg, uint16_t RegSize, uint8_t* pBuffer, uint16_t Length);
+static HAL_StatusTypeDef  I2C1_ReadBuffer(uint8_t Addr, uint8_t* pBuffer, uint16_t Length);
+static HAL_StatusTypeDef  I2C1_SendAddr(uint8_t Addr, uint16_t Reg, uint16_t RegSize);
+static HAL_StatusTypeDef  I2C1_IsDeviceReady(uint16_t DevAddress, uint32_t Trials);
+
+#endif /* HAL_I2C_MODULE_ENABLED */
 
 #ifdef HAL_ADC_MODULE_ENABLED
 static HAL_StatusTypeDef               ADCx_Init(void);
@@ -304,11 +326,293 @@ uint32_t BSP_PB_GetState(Button_TypeDef Button)
   return HAL_GPIO_ReadPin(BUTTON_PORT[Button], BUTTON_PIN[Button]);
 }
 
-
-#ifdef HAL_SPI_MODULE_ENABLED
-/******************************************************************************
+/*******************************************************************************
                             BUS OPERATIONS
 *******************************************************************************/
+#if defined(HAL_I2C_MODULE_ENABLED)
+/******************************* I2C Routines *********************************/
+
+/**
+  * @brief I2C Bus initialization
+  * @param None
+  * @retval None
+  */
+static void I2C1_Init(void)
+{
+    if (HAL_I2C_GetState(&hnucleo_I2c1) == HAL_I2C_STATE_RESET)
+    {
+        hnucleo_I2c1.Instance = NUCLEO_I2C1;
+        hnucleo_I2c1.Init.Timing = I2C1_TIMING;
+        hnucleo_I2c1.Init.OwnAddress1 = 0;
+        hnucleo_I2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+        hnucleo_I2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+        hnucleo_I2c1.Init.OwnAddress2 = 0;
+        hnucleo_I2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+        hnucleo_I2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+        hnucleo_I2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+
+        /* Init the I2C */
+        I2C1_MspInit(&hnucleo_I2c1);
+        HAL_I2C_Init(&hnucleo_I2c1);
+    }
+}
+
+/**
+  * @brief I2C1 Bus Deinitialization
+  * @retval None
+  */
+static void I2C1_DeInit(void)
+{
+    if (HAL_I2C_GetState(&hnucleo_I2c1) != HAL_I2C_STATE_RESET)
+    {
+        /* DeInit the I2C */
+        HAL_I2C_DeInit(&hnucleo_I2c1);
+        I2C1_MspDeInit(&hnucleo_I2c1);
+    }
+}
+/**
+  * @brief  Writes a single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Value: Data to be written
+  * @retval None
+  */
+static void I2C1_Write(uint8_t Addr, uint16_t Reg, uint16_t RegSize, uint8_t Value)
+{
+    HAL_StatusTypeDef status = HAL_OK;
+
+    /* Shift address left per HAL API requirement */
+    Addr <<= 1;
+
+    status = HAL_I2C_Mem_Write(&hnucleo_I2c1, Addr, Reg, RegSize, &Value, 1, 100);
+
+    /* Check the communication status */
+    if (status != HAL_OK)
+    {
+        /* Execute user timeout callback */
+        I2C1_Error();
+    }
+}
+
+/**
+  * @brief  Reads a single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @retval Read data
+  */
+static uint8_t I2C1_Read(uint8_t Addr, uint16_t Reg, uint16_t RegSize)
+{
+    HAL_StatusTypeDef status = HAL_OK;
+    uint8_t Value = 0;
+
+    /* Shift address left per HAL API requirement */
+    Addr <<= 1;
+
+    status = HAL_I2C_Mem_Read(&hnucleo_I2c1, Addr, Reg, RegSize, &Value, 1, 1000);
+
+    /* Check the communication status */
+    if (status != HAL_OK)
+    {
+        /* Execute user timeout callback */
+        I2C1_Error();
+    }
+    return Value;
+}
+
+
+/**
+  * @brief  Sends address I2C transaction with STOP.
+  * @note   Used in conjunction with I2C1_ReadBuffer to follow up with the read.
+  * @param  Addr  : I2C Address
+  * @param  Reg   : Reg Address
+  * @param  RegSize : The target register size (can be 8BIT or 16BIT)
+  * @retval 0 if no problems to send address
+  */
+static HAL_StatusTypeDef I2C1_SendAddr(uint8_t Addr, uint16_t Reg, uint16_t RegSize)
+{
+    HAL_StatusTypeDef status = HAL_OK;
+
+    /* Shift address left per HAL API requirement */
+    Addr <<= 1;
+
+    /* Master transaction to set register address. */
+    uint8_t buf[2];
+    uint16_t size;
+    
+    if (RegSize == I2C_MEMADD_SIZE_16BIT)
+    {
+        buf[0] = Reg >> 8;
+        buf[1] = Reg;
+        size = 2;
+    }
+    else
+    {
+        buf[0] = Reg;
+        size = 1;
+    }    
+    
+    status = HAL_I2C_Master_Transmit(&hnucleo_I2c1, Addr, buf, size, I2cxTimeout);
+
+    /* Check the communication status */
+    if (status != HAL_OK)
+    {
+        /* Re-Initiaize the BUS */
+        I2C1_Error();
+    }
+    return status;
+}
+
+/**
+  * @brief  Reads multiple data on the BUS.
+  * @note   To be preceded by I2C1_SendAddr
+  * @param  Addr  : I2C Address
+  * @param  pBuffer : pointer to read data buffer
+  * @param  Length : length of the data
+  * @retval 0 if no problems to read multiple data
+  */
+static HAL_StatusTypeDef I2C1_ReadBuffer(uint8_t Addr, uint8_t* pBuffer, uint16_t Length)
+{
+    HAL_StatusTypeDef status = HAL_OK;
+
+    /* Shift address left per HAL API requirement */
+    Addr <<= 1;
+
+    /* Master transaction to receive data, having already sent register address. */
+    status = HAL_I2C_Master_Receive(&hnucleo_I2c1, Addr, pBuffer, Length,
+       I2cxTimeout);
+
+    /* Check the communication status */
+    if (status != HAL_OK)
+    {
+        /* Re-Initiaize the BUS */
+        I2C1_Error();
+    }
+    return status;
+}
+
+/**
+  * @brief  Checks if target device is ready for communication.
+  * @note   This function is used with Memory devices
+  * @param  DevAddress: Target device address
+  * @param  Trials: Number of trials
+  * @retval HAL status
+  */
+static HAL_StatusTypeDef I2C1_IsDeviceReady(uint16_t DevAddress, uint32_t Trials)
+{
+    /* Shift address left per HAL API requirement */
+    DevAddress <<= 1;
+
+    return (HAL_I2C_IsDeviceReady(&hnucleo_I2c1, DevAddress, Trials, I2cxTimeout));
+}
+
+/**
+  * @brief  Write a value in a register of the device through BUS.
+  * @param  Addr: Device address on BUS Bus.
+  * @param  Reg: The target register address to write
+  * @param  RegSize: The target register size (can be 8BIT or 16BIT)
+  * @param  pBuffer: The target register value to be written
+  * @param  Length: buffer size to be written
+  * @retval None
+  */
+static HAL_StatusTypeDef I2C1_WriteBuffer(uint8_t Addr, uint16_t Reg, uint16_t RegSize, uint8_t* pBuffer, uint16_t Length)
+{
+    HAL_StatusTypeDef status = HAL_OK;
+
+    /* Shift address left per HAL API requirement */
+    Addr <<= 1;
+
+    status = HAL_I2C_Mem_Write(&hnucleo_I2c1, Addr, Reg, RegSize, pBuffer, Length, I2cxTimeout);
+
+    /* Check the communication status */
+    if (status != HAL_OK)
+    {
+        /* Re-Initiaize the BUS */
+        I2C1_Error();
+    }
+    return status;
+}
+
+/**
+  * @brief  Manages error callback by re-initializing I2C.
+  * @param  None
+  * @retval None
+  */
+static void I2C1_Error(void)
+{
+    /* De-initialize the I2C communication BUS */
+    HAL_I2C_DeInit(&hnucleo_I2c1);
+
+    /* Re-Initiaize the I2C communication BUS */
+    I2C1_Init();
+}
+
+/**
+  * @brief I2C MSP Initialization
+  * @param hi2c: I2C handle
+  * @retval None
+  */
+static void I2C1_MspInit(I2C_HandleTypeDef* hi2c)
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+    RCC_PeriphCLKInitTypeDef RCC_PeriphCLKInitStruct;
+
+    /*##-1- Set source clock to SYSCLK for I2C1 ################################################*/
+    RCC_PeriphCLKInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2C1;
+    RCC_PeriphCLKInitStruct.I2c1ClockSelection = RCC_I2C1CLKSOURCE_SYSCLK;
+    HAL_RCCEx_PeriphCLKConfig(&RCC_PeriphCLKInitStruct);
+
+    /*##-2- Configure the GPIOs ################################################*/
+
+    /* Enable GPIO clock */
+    NUCLEO_I2C1_GPIO_CLK_ENABLE();
+
+    /* Configure I2C SCL & SDA as alternate function  */
+    GPIO_InitStruct.Pin = (NUCLEO_I2C1_SCL_PIN | NUCLEO_I2C1_SDA_PIN);
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = NUCLEO_I2C1_SCL_SDA_AF;
+    HAL_GPIO_Init(NUCLEO_I2C1_GPIO_PORT, &GPIO_InitStruct);
+
+    /*##-3- Configure the Eval I2C peripheral #######################################*/
+    /* Enable I2C clock */
+    NUCLEO_I2C1_CLK_ENABLE();
+
+    /* Force the I2C peripheral clock reset */
+    NUCLEO_I2C1_FORCE_RESET();
+
+    /* Release the I2C peripheral clock reset */
+    NUCLEO_I2C1_RELEASE_RESET();
+}
+
+/**
+  * @brief I2C1 MSP DeInitialization
+  * @param hi2c: I2C1 handle
+  * @retval None
+  */
+static void I2C1_MspDeInit(I2C_HandleTypeDef* hi2c)
+{
+
+    /*##-1- Unconfigure the GPIOs ################################################*/
+    /* Enable GPIO clock */
+    NUCLEO_I2C1_GPIO_CLK_ENABLE();
+
+    /* Configure I2C Rx/Tx as alternate function  */
+    HAL_GPIO_DeInit(NUCLEO_I2C1_GPIO_PORT, (NUCLEO_I2C1_SCL_PIN | NUCLEO_I2C1_SDA_PIN));
+
+    /*##-2- Unconfigure the Nucleo I2C1 peripheral ############################*/
+    /* Force and release I2C Peripheral */
+    NUCLEO_I2C1_FORCE_RESET();
+    NUCLEO_I2C1_RELEASE_RESET();
+
+    /* Disable Nucleo I2C1 clock */
+    NUCLEO_I2C1_RELEASE_RESET();
+}
+
+#endif /*HAL_I2C_MODULE_ENABLED*/
+
+#ifdef HAL_SPI_MODULE_ENABLED
+/******************************* SPI Routines *********************************/
 /**
   * @brief  Initialize SPI MSP.
   * @retval None
@@ -478,13 +782,6 @@ void SD_IO_Init(void)
   gpioinitstruct.Speed  = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(SD_CS_GPIO_PORT, &gpioinitstruct);
 
-  /* Configure LCD_CS_PIN pin: LCD Card CS pin */
-  gpioinitstruct.Pin = LCD_CS_PIN;
-  gpioinitstruct.Mode = GPIO_MODE_OUTPUT_PP;
-  gpioinitstruct.Pull = GPIO_NOPULL;
-  gpioinitstruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(SD_CS_GPIO_PORT, &gpioinitstruct);
-  LCD_CS_HIGH();
   /*------------Put SD in SPI mode--------------*/
   /* SD SPI Config */
   SPIx_Init();
@@ -709,6 +1006,114 @@ void LCD_Delay(uint32_t Delay)
 }
 #endif /* HAL_SPI_MODULE_ENABLED */
 
+/********************************* LINK SEESAW ********************************/
+
+#if defined(HAL_I2C_MODULE_ENABLED) && defined(USE_ADAFRUIT_SHIELD_V2)
+
+/**
+ * @brief  SEESAW delay
+ * @param  Delay: Delay in ms
+ * @retval None
+ */
+void SEESAW_IO_Delay(uint32_t Delay)
+{
+    HAL_Delay(Delay);
+}
+
+void SEESAW_IO_DelayMicroseconds(uint32_t Delay_us)
+{
+    /* Round up to nearest millisecond. */
+
+    uint32_t delay_ms = ((Delay_us)+999) / 1000;
+    HAL_Delay(delay_ms);
+}
+
+/**
+  * @brief  Initializes IOE low level.
+  * @param  None
+  * @retval None
+  */
+void SEESAW_IO_Init(void)
+{
+    I2C1_Init();
+}
+/**
+  * @brief  SEESAW writes single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Value: Data to be written
+  * @retval None
+  */
+void SEESAW_IO_Write(uint8_t Addr, uint16_t Reg, uint8_t Value)
+{
+    I2C1_Write(Addr, Reg, I2C_MEMADD_SIZE_16BIT, Value);
+}
+
+/**
+  * @brief  SEESAW reads single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @retval Read data
+  */
+uint8_t SEESAW_IO_Read(uint8_t Addr, uint16_t Reg)
+{
+    return I2C1_Read(Addr, Reg, I2C_MEMADD_SIZE_16BIT);
+}
+
+/**
+  * @brief  SEESAW reads multiple data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Buffer: Pointer to data buffer
+  * @param  Length: Length of the data
+  * @retval Number of read data
+  */
+uint16_t SEESAW_IO_ReadMultiple(uint8_t Addr, uint16_t Reg, uint8_t* Buffer, uint16_t Length, uint16_t Delay_us)
+{
+    HAL_StatusTypeDef status;
+
+    status = I2C1_SendAddr(Addr, Reg, I2C_MEMADD_SIZE_16BIT);
+
+    if (status == HAL_OK)
+    {
+        SEESAW_IO_DelayMicroseconds(Delay_us);
+
+        status = I2C1_ReadBuffer(Addr, Buffer, Length);
+    }
+
+    return status;
+}
+
+/**
+  * @brief  SEESAW  writes multiple data.
+  * @param  Addr: I2C address
+  * @param  Reg: Register address
+  * @param  Buffer: Pointer to data buffer
+  * @param  Length: Length of the data
+  * @retval None
+  */
+
+void SEESAW_IO_WriteMultiple(uint8_t Addr, uint16_t Reg, uint8_t *Buffer, uint16_t Length)
+{
+    I2C1_WriteBuffer(Addr, Reg, I2C_MEMADD_SIZE_16BIT, Buffer, Length);
+}
+
+
+
+
+/**
+  * @brief  Checks if Temperature Sensor is ready for communication.
+  * @param  DevAddress: Target device address
+  * @param  Trials: Number of trials
+  * @retval HAL status
+  */
+uint16_t SEESAW_IO_IsDeviceReady(uint16_t DevAddress, uint32_t Trials)
+{
+    return (I2C1_IsDeviceReady(DevAddress, Trials));
+}
+
+#endif /* HAL_I2C_MODULE_ENABLED */
+
 /******************************* LINK JOYSTICK ********************************/
 #ifdef HAL_ADC_MODULE_ENABLED
 /**
@@ -815,8 +1220,92 @@ static void ADCx_DeInit(void)
     ADCx_MspDeInit(&hnucleo_Adc);
 }
 
+#endif /* HAL_ADC_MODULE_ENABLED */
+
 /******************************* LINK JOYSTICK ********************************/
 
+#if USE_ADAFRUIT_SHIELD_V2
+#include "stm32_adafruit_shield.h"
+
+/**
+  * @brief  Configures joystick available on adafruit 1.8" TFT shield V2
+  *         managed through seesaw.
+  * @retval Joystickstatus (0=> success, 1=> fail)
+  */
+uint8_t BSP_JOY_Init(void)
+{
+    /* Note: don't do a software reset of seesaw - this should 
+     * have been done with LCD module init 
+     */
+    if (Adafruit_seesaw_init(TFTSHIELD_ADDR, false) != true)
+    {
+        return (uint8_t)HAL_ERROR;
+    }
+    return HAL_OK;
+}
+
+/**
+  * @brief  DeInit joystick GPIOs.
+  * @retval None.
+  */
+void BSP_JOY_DeInit(void)
+{
+    /* Do nothing */
+}
+
+/**
+  * @brief  Returns the Joystick key pressed.
+  * @note   To know which Joystick key is pressed we need to read seesaw.
+  * @retval JOYState_TypeDef: Code of the Joystick key pressed.
+  */
+JOYState_TypeDef BSP_JOY_GetState(void)
+{
+    JOYState_TypeDef state = JOY_NONE;
+    uint32_t  keyconvertedvalue = 0;
+
+    /* Start the conversion process */
+    keyconvertedvalue = Adafruit_seesaw_digitalReadBulk(TFTSHIELD_BUTTON_ALL);
+
+#if 0 /* diagnostics */
+    if (keyconvertedvalue != 0) {
+        char buf[12];
+        sprintf(buf, "%08x", keyconvertedvalue);
+        BSP_LCD_DisplayStringAtLine(12, (uint8_t*)buf);
+    }
+#endif
+
+    if ((keyconvertedvalue & TFTSHIELD_BUTTON_UP) == 0)
+    {
+        state = JOY_UP;
+    }
+    else if ((keyconvertedvalue & TFTSHIELD_BUTTON_RIGHT) == 0)
+    {
+        state = JOY_RIGHT;
+    }
+    else if ((keyconvertedvalue & TFTSHIELD_BUTTON_IN) == 0)
+    {
+        state = JOY_SEL;
+    }
+    else if ((keyconvertedvalue & TFTSHIELD_BUTTON_DOWN) == 0)
+    {
+        state = JOY_DOWN;
+    }
+    else if ((keyconvertedvalue & TFTSHIELD_BUTTON_LEFT) == 0)
+    {
+        state = JOY_LEFT;
+    }
+    else
+    {
+        state = JOY_NONE;
+    }
+
+    /* Return the code of the Joystick key pressed */
+    return state;
+}
+
+#else /* USE_ADAFRUIT_SHIELD_V2 */
+
+#ifdef HAL_ADC_MODULE_ENABLED
 /**
   * @brief  Configures joystick available on adafruit 1.8" TFT shield 
   *         managed through ADC to detect motion.
@@ -903,6 +1392,8 @@ JOYState_TypeDef BSP_JOY_GetState(void)
   return state;
 }
 #endif /* HAL_ADC_MODULE_ENABLED */
+
+#endif /* USE_ADAFRUIT_SHIELD_V2 */
 
 /**
   * @}
