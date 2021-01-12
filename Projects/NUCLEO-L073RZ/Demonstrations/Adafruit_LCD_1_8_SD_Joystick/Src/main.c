@@ -58,7 +58,9 @@ char SD_Path[4]; /* SD card logical drive path */
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void LED2_Blink(void);
+#ifndef USE_ADAFRUIT_SHIELD_V2
 static ShieldStatus TFT_ShieldDetect(void);
+#endif
 static void SDCard_Config(void);
 static void TFT_DisplayErrorMessage(uint8_t message, int res);
 static void TFT_DisplayMenu(void);
@@ -87,7 +89,7 @@ int main(void)
   /* Configure the system clock = 32 MHz */
   SystemClock_Config();
 
-#if USE_ADAFRUIT_SHIELD_V2
+#ifdef USE_ADAFRUIT_SHIELD_V2
   if (BSP_LCD_Init() == LCD_OK)
   {
 #else
@@ -434,11 +436,13 @@ static void SDCard_Config(void)
       TFT_DisplayErrorMessage(BSP_SD_INIT_FAILED, 0);
     }  
 
+#if 0 /* debug - print card capacity */
     SD_CardInfo CardInfo;
     BSP_SD_GetCardInfo(&CardInfo);
     char buf[12];
     sprintf(buf, " %lu", CardInfo.CardCapacity);
     BSP_LCD_DisplayStringAtLine(8, (uint8_t*)buf);
+#endif
     
     /* Check the mounted device */
     if(f_mount(&SD_FatFs, (TCHAR const*)"/", 0) != FR_OK)
@@ -594,6 +598,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 }
 
+#ifndef USE_ADAFRUIT_SHIELD_V2
+
 /**
   * @brief  Check the availability of adafruit 1.8" TFT shield on top of STM32NUCLEO
   *         board. This is done by reading the state of IO PB.00 pin (mapped to 
@@ -624,6 +630,8 @@ static ShieldStatus TFT_ShieldDetect(void)
     return SHIELD_NOT_DETECTED;
   }
 }
+
+#endif /* USE_ADAFRUIT_SHIELD_V2 */
 
 #ifdef  USE_FULL_ASSERT
 /**

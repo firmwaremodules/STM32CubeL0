@@ -93,7 +93,7 @@ uint32_t SpixTimeout = NUCLEO_SPIx_TIMEOUT_MAX; /*<! Value of Timeout when SPI c
 static SPI_HandleTypeDef hnucleo_Spi;
 #endif /* HAL_SPI_MODULE_ENABLED */
 
-#ifdef HAL_I2C_MODULE_ENABLED
+#if defined(HAL_I2C_MODULE_ENABLED) && defined (USE_ADAFRUIT_SHIELD_V2)
 uint32_t I2cxTimeout = NUCLEO_I2C1_TIMEOUT_MAX; /*<! Value of Timeout when I2C communication fails */
 static I2C_HandleTypeDef hnucleo_I2c1;
 #endif /* HAL_I2C_MODULE_ENABLED */
@@ -136,14 +136,12 @@ void                      LCD_IO_WriteReg(uint8_t LCDReg);
 void                      LCD_Delay(uint32_t delay);
 #endif /* HAL_SPI_MODULE_ENABLED */
 
-#ifdef HAL_I2C_MODULE_ENABLED
+#if defined(HAL_I2C_MODULE_ENABLED) && defined (USE_ADAFRUIT_SHIELD_V2)
 /* I2C1 bus function */
 /* Link function for I2C SEESAW peripheral */
 static void               I2C1_Init(void);
-static void               I2C1_DeInit(void);
 static void               I2C1_Error(void);
 static void               I2C1_MspInit(I2C_HandleTypeDef* hi2c);
-static void               I2C1_MspDeInit(I2C_HandleTypeDef* hi2c);
 static void               I2C1_Write(uint8_t Addr, uint16_t Reg, uint16_t RegSize, uint8_t Value);
 static uint8_t            I2C1_Read(uint8_t Addr, uint16_t Reg, uint16_t RegSize);
 static HAL_StatusTypeDef  I2C1_WriteBuffer(uint8_t Addr, uint16_t Reg, uint16_t RegSize, uint8_t* pBuffer, uint16_t Length);
@@ -329,7 +327,7 @@ uint32_t BSP_PB_GetState(Button_TypeDef Button)
 /*******************************************************************************
                             BUS OPERATIONS
 *******************************************************************************/
-#if defined(HAL_I2C_MODULE_ENABLED)
+#if defined(HAL_I2C_MODULE_ENABLED) && defined (USE_ADAFRUIT_SHIELD_V2)
 /******************************* I2C Routines *********************************/
 
 /**
@@ -357,19 +355,6 @@ static void I2C1_Init(void)
     }
 }
 
-/**
-  * @brief I2C1 Bus Deinitialization
-  * @retval None
-  */
-static void I2C1_DeInit(void)
-{
-    if (HAL_I2C_GetState(&hnucleo_I2c1) != HAL_I2C_STATE_RESET)
-    {
-        /* DeInit the I2C */
-        HAL_I2C_DeInit(&hnucleo_I2c1);
-        I2C1_MspDeInit(&hnucleo_I2c1);
-    }
-}
 /**
   * @brief  Writes a single data.
   * @param  Addr: I2C address
@@ -585,29 +570,6 @@ static void I2C1_MspInit(I2C_HandleTypeDef* hi2c)
     NUCLEO_I2C1_RELEASE_RESET();
 }
 
-/**
-  * @brief I2C1 MSP DeInitialization
-  * @param hi2c: I2C1 handle
-  * @retval None
-  */
-static void I2C1_MspDeInit(I2C_HandleTypeDef* hi2c)
-{
-
-    /*##-1- Unconfigure the GPIOs ################################################*/
-    /* Enable GPIO clock */
-    NUCLEO_I2C1_GPIO_CLK_ENABLE();
-
-    /* Configure I2C Rx/Tx as alternate function  */
-    HAL_GPIO_DeInit(NUCLEO_I2C1_GPIO_PORT, (NUCLEO_I2C1_SCL_PIN | NUCLEO_I2C1_SDA_PIN));
-
-    /*##-2- Unconfigure the Nucleo I2C1 peripheral ############################*/
-    /* Force and release I2C Peripheral */
-    NUCLEO_I2C1_FORCE_RESET();
-    NUCLEO_I2C1_RELEASE_RESET();
-
-    /* Disable Nucleo I2C1 clock */
-    NUCLEO_I2C1_RELEASE_RESET();
-}
 
 #endif /*HAL_I2C_MODULE_ENABLED*/
 
