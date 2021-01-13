@@ -1084,6 +1084,11 @@ static void SetDisplayWindow(uint16_t Xpos, uint16_t Ypos, uint16_t Width, uint1
   }  
 }
 
+void BSP_LCD_SetRotation(uint8_t rotation)
+{
+    st7735_SetDisplayRotation(rotation);
+}
+
 /**
   * @}
   */  

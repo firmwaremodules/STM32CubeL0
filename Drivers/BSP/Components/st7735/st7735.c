@@ -46,6 +46,23 @@
 /** @defgroup ST7735_Private_Defines
   * @{
   */
+#define ST77XX_MADCTL_MY 0x80
+#define ST77XX_MADCTL_MX 0x40
+#define ST77XX_MADCTL_MV 0x20
+#define ST77XX_MADCTL_ML 0x10
+#define ST77XX_MADCTL_RGB 0x00
+
+//        madctl = ST77XX_MADCTL_MY | ST77XX_MADCTL_MX | ST77XX_MADCTL_RGB;
+#define MADCTL_ORIENTATION_0        0xC0
+
+//        madctl = ST77XX_MADCTL_MY | ST77XX_MADCTL_MV | ST77XX_MADCTL_RGB;
+#define MADCTL_ORIENTATION_1        0xA0
+
+#define MADCTL_ORIENTATION_2        0x00
+
+//madctl = ST77XX_MADCTL_MX | ST77XX_MADCTL_MV | ST77XX_MADCTL_RGB;
+#define MADCTL_ORIENTATION_3        0x60
+
 
 /**
   * @}
@@ -82,6 +99,14 @@ LCD_DrvTypeDef   st7735_drv =
 };
 
 static uint16_t ArrayRGB[320] = {0};
+
+/* Adjustable display dimensions based on rotation.
+ * Initialized to default portrait orientation (h > w) 
+ */
+static uint16_t PixelWidth = ST7735_LCD_PIXEL_WIDTH;
+static uint16_t PixelHeight = ST7735_LCD_PIXEL_HEIGHT;
+
+static uint8_t  MADCTL_Orientation = MADCTL_ORIENTATION_0;
 
 /**
 * @}
@@ -209,7 +234,7 @@ void st7735_Init(void)
   /* Main screen turn on, no delay */
   st7735_WriteReg(LCD_REG_41, 0x00);
   /* Memory access control: MY = 1, MX = 1, MV = 0, ML = 0 */
-  st7735_WriteReg(LCD_REG_54, 0xC0);
+  st7735_WriteReg(LCD_REG_54, MADCTL_Orientation);
 }
 
 /**
@@ -225,7 +250,7 @@ void st7735_DisplayOn(void)
   LCD_IO_WriteReg(LCD_REG_41);
   LCD_Delay(10);
   LCD_IO_WriteReg(LCD_REG_54);
-  data = 0xC0;
+  data = MADCTL_Orientation;
   LCD_IO_WriteMultipleData(&data, 1);
 }
 
@@ -242,7 +267,7 @@ void st7735_DisplayOff(void)
   LCD_IO_WriteReg(LCD_REG_40);
   LCD_Delay(10);
   LCD_IO_WriteReg(LCD_REG_54);
-  data = 0xC0;
+  data = MADCTL_Orientation;
   LCD_IO_WriteMultipleData(&data, 1);
 }
 
@@ -278,7 +303,7 @@ void st7735_SetCursor(uint16_t Xpos, uint16_t Ypos)
 void st7735_WritePixel(uint16_t Xpos, uint16_t Ypos, uint16_t RGBCode)
 {
   uint8_t data = 0;
-  if((Xpos >= ST7735_LCD_PIXEL_WIDTH) || (Ypos >= ST7735_LCD_PIXEL_HEIGHT)) 
+  if((Xpos >= PixelWidth) || (Ypos >= PixelHeight))
   {
     return;
   }
@@ -350,7 +375,7 @@ void st7735_DrawHLine(uint16_t RGBCode, uint16_t Xpos, uint16_t Ypos, uint16_t L
 {
   uint8_t counter = 0;
   
-  if(Xpos + Length > ST7735_LCD_PIXEL_WIDTH) return;
+  if(Xpos + Length > PixelWidth) return;
   
   /* Set Cursor */
   st7735_SetCursor(Xpos, Ypos);
@@ -374,7 +399,7 @@ void st7735_DrawVLine(uint16_t RGBCode, uint16_t Xpos, uint16_t Ypos, uint16_t L
 {
   uint8_t counter = 0;
   
-  if(Ypos + Length > ST7735_LCD_PIXEL_HEIGHT) return;
+  if(Ypos + Length > PixelHeight) return;
   for(counter = 0; counter < Length; counter++)
   {
     st7735_WritePixel(Xpos, Ypos + counter, RGBCode);
@@ -388,7 +413,7 @@ void st7735_DrawVLine(uint16_t RGBCode, uint16_t Xpos, uint16_t Ypos, uint16_t L
   */
 uint16_t st7735_GetLcdPixelWidth(void)
 {
-  return ST7735_LCD_PIXEL_WIDTH;
+  return PixelWidth;
 }
 
 /**
@@ -398,7 +423,7 @@ uint16_t st7735_GetLcdPixelWidth(void)
   */
 uint16_t st7735_GetLcdPixelHeight(void)
 {                          
-  return ST7735_LCD_PIXEL_HEIGHT;
+  return PixelHeight;
 }
 
 /**
@@ -421,8 +446,7 @@ void st7735_DrawBitmap(uint16_t Xpos, uint16_t Ypos, uint8_t *pbmp)
   
   /* Set GRAM write direction and BGR = 0 */
   /* Memory access control: MY = 0, MX = 1, MV = 0, ML = 0 */
-  st7735_WriteReg(LCD_REG_54, 0x40);
-
+  st7735_WriteReg(LCD_REG_54, MADCTL_Orientation ^ 0x80);
   /* Set Cursor */
   st7735_SetCursor(Xpos, Ypos);  
  
@@ -430,8 +454,53 @@ void st7735_DrawBitmap(uint16_t Xpos, uint16_t Ypos, uint8_t *pbmp)
  
   /* Set GRAM write direction and BGR = 0 */
   /* Memory access control: MY = 1, MX = 1, MV = 0, ML = 0 */
-  st7735_WriteReg(LCD_REG_54, 0xC0);
+  st7735_WriteReg(LCD_REG_54, MADCTL_Orientation);
 }
+
+
+#define ST77XX_MADCTL_MY 0x80
+#define ST77XX_MADCTL_MX 0x40
+#define ST77XX_MADCTL_MV 0x20
+#define ST77XX_MADCTL_ML 0x10
+#define ST77XX_MADCTL_RGB 0x00
+
+/**************************************************************************/
+/*!
+    @brief  Set origin of (0,0) and orientation of TFT display
+    @param  m  The index for rotation, from 0-3 inclusive, 0 = portrait (default)
+    @ref https://github.com/adafruit/Adafruit-ST7735-Library/blob/master/Adafruit_ST7735.cpp
+*/
+/**************************************************************************/
+void st7735_SetDisplayRotation(uint8_t rotation)
+{
+    rotation &= 0x3;
+
+    switch (rotation) {
+    case 0:
+        MADCTL_Orientation = MADCTL_ORIENTATION_0;
+        PixelHeight = ST7735_LCD_PIXEL_HEIGHT;
+        PixelWidth = ST7735_LCD_PIXEL_WIDTH;
+        break;
+    case 1:
+        MADCTL_Orientation = MADCTL_ORIENTATION_1;
+        PixelWidth = ST7735_LCD_PIXEL_HEIGHT;
+        PixelHeight = ST7735_LCD_PIXEL_WIDTH;
+        break;
+    case 2:
+        MADCTL_Orientation = MADCTL_ORIENTATION_2;
+        PixelHeight = ST7735_LCD_PIXEL_HEIGHT;
+        PixelWidth = ST7735_LCD_PIXEL_WIDTH;
+        break;
+    case 3:
+        MADCTL_Orientation = MADCTL_ORIENTATION_3;
+        PixelWidth = ST7735_LCD_PIXEL_HEIGHT;
+        PixelHeight = ST7735_LCD_PIXEL_WIDTH;
+        break;
+    }
+
+    st7735_WriteReg(LCD_REG_54, MADCTL_Orientation);
+}
+
 
 /**
 * @}

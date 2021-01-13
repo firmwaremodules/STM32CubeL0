@@ -171,7 +171,50 @@ void SystemClock_Config(void)
   }
 }
 
+#define TEST_ROTATION        0
 
+#if TEST_ROTATION
+static void TFT_TestRotation(void)
+{
+    uint8_t rotation = 0;
+
+    while (1)
+    {
+        BSP_LCD_Clear(LCD_COLOR_WHITE);
+        BSP_LCD_SetRotation(rotation);
+
+        /* Set Text color */
+        BSP_LCD_SetTextColor(LCD_COLOR_RED);
+        /* Display message */
+        BSP_LCD_DisplayStringAtLine(1, (uint8_t*)" NUCLEO-STM32L073RZ   ");
+        BSP_LCD_DisplayStringAtLine(2, (uint8_t*)"        DEMO          ");
+
+        /* Set Text color */
+        BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
+        /* Display message */
+        BSP_LCD_DisplayStringAtLine(4, (uint8_t*)" Display images      ");
+        BSP_LCD_DisplayStringAtLine(5, (uint8_t*)" stored under uSD    ");
+        BSP_LCD_DisplayStringAtLine(6, (uint8_t*)" on TFT LCD          ");
+
+        /* Set Text color */
+        BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
+        /* Display message */
+        BSP_LCD_DisplayStringAtLine(8, (uint8_t*)"  Press JOY DOWN   ");
+        BSP_LCD_DisplayStringAtLine(9, (uint8_t*)"  to continue...   ");
+
+        /* Wait for JOY_DOWN is pressed */
+        while (BSP_JOY_GetState() != JOY_DOWN)
+        {
+        }
+        /* Wait for JOY_DOWN is released */
+        while (BSP_JOY_GetState() == JOY_DOWN)
+        {
+        }
+
+        rotation++;
+    }
+}
+#endif
 
 /**
   * @brief  Displays demonstration menu.
@@ -182,8 +225,17 @@ static void TFT_DisplayMenu(void)
 {
   JOYState_TypeDef tmp;
   
+  /* With SD card to the right of display (landscape mode).
+  * 9 lines in landscape mode (lines 0 and 10 reserved for border at top and bottom), 12 in portrait.
+  */
+  BSP_LCD_SetRotation(3);
+
   /* Set Menu font */
   BSP_LCD_SetFont(&Font12);
+
+#if TEST_ROTATION
+  TFT_TestRotation();
+#endif
 
   /* Set Text color */
   BSP_LCD_SetTextColor(LCD_COLOR_RED);
@@ -195,14 +247,14 @@ static void TFT_DisplayMenu(void)
   BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
   /* Display message */  
   BSP_LCD_DisplayStringAtLine(4, (uint8_t*)" Display images      ");
-  BSP_LCD_DisplayStringAtLine(6, (uint8_t*)" stored under uSD    ");
-  BSP_LCD_DisplayStringAtLine(8, (uint8_t*)" on TFT LCD          ");
+  BSP_LCD_DisplayStringAtLine(5, (uint8_t*)" stored under uSD    ");
+  BSP_LCD_DisplayStringAtLine(6, (uint8_t*)" on TFT LCD          ");
   
   /* Set Text color */
   BSP_LCD_SetTextColor(LCD_COLOR_BLACK);
   /* Display message */ 
-  BSP_LCD_DisplayStringAtLine(11, (uint8_t*)"  Press JOY DOWN   ");
-  BSP_LCD_DisplayStringAtLine(12, (uint8_t*)"  to continue...   ");
+  BSP_LCD_DisplayStringAtLine(8, (uint8_t*)"  Press JOY DOWN   ");
+  BSP_LCD_DisplayStringAtLine(9, (uint8_t*)"  to continue...   ");
  
   /* Wait for JOY_DOWN is pressed */
   while (BSP_JOY_GetState() != JOY_DOWN)
@@ -213,20 +265,20 @@ static void TFT_DisplayMenu(void)
   while (BSP_JOY_GetState() == JOY_DOWN)
   {
   }
-  
+
   /* Set Text color */
   BSP_LCD_SetTextColor(LCD_COLOR_BLACK);  
   /* Display message */ 
   BSP_LCD_DisplayStringAtLine(4,  (uint8_t*)"                   ");
-  BSP_LCD_DisplayStringAtLine(6,  (uint8_t*)"  Press Joystick   ");
+  BSP_LCD_DisplayStringAtLine(5,  (uint8_t*)"  Press Joystick   ");
   
   /* Set Text color */
   BSP_LCD_SetTextColor(LCD_COLOR_BLUE);
   /* Display message */ 
-  BSP_LCD_DisplayStringAtLine(8,  (uint8_t*)"  UP for:          ");
-  BSP_LCD_DisplayStringAtLine(9,  (uint8_t*)"  Manual Mode      ");
-  BSP_LCD_DisplayStringAtLine(11, (uint8_t*)"  DOWN for:        ");
-  BSP_LCD_DisplayStringAtLine(12, (uint8_t*)"  Automatic Mode   ");
+  BSP_LCD_DisplayStringAtLine(6,  (uint8_t*)"  UP for:          ");
+  BSP_LCD_DisplayStringAtLine(7,  (uint8_t*)"  Manual Mode      ");
+  BSP_LCD_DisplayStringAtLine(8,  (uint8_t*)"  DOWN for:        ");
+  BSP_LCD_DisplayStringAtLine(9, (uint8_t*)"  Automatic Mode   ");
 
   /* Wait for JOY_DOWN or JOY_UP is pressed */
   tmp = JOY_RIGHT;
@@ -245,15 +297,15 @@ static void TFT_DisplayMenu(void)
     BSP_LCD_SetTextColor(LCD_COLOR_RED);    
     /* Display message */ 
     BSP_LCD_DisplayStringAtLine(3,  (uint8_t*)"   Manual Mode   ");
-    BSP_LCD_DisplayStringAtLine(5,  (uint8_t*)"    Selected     "); 
+    BSP_LCD_DisplayStringAtLine(4,  (uint8_t*)"    Selected     "); 
     
     /* Set Text color */
     BSP_LCD_SetTextColor(LCD_COLOR_BLUE);      
     /* Display message */
-    BSP_LCD_DisplayStringAtLine(9,  (uint8_t*)" RIGHT: Next image"); 
-    BSP_LCD_DisplayStringAtLine(10, (uint8_t*)" LEFT : Previous  ");
-    BSP_LCD_DisplayStringAtLine(11, (uint8_t*)" SEL  : Switch to ");
-    BSP_LCD_DisplayStringAtLine(12, (uint8_t*)" automatic mode   ");    
+    BSP_LCD_DisplayStringAtLine(6,  (uint8_t*)" RIGHT: Next image"); 
+    BSP_LCD_DisplayStringAtLine(7, (uint8_t*)" LEFT : Previous  ");
+    BSP_LCD_DisplayStringAtLine(8, (uint8_t*)" SEL  : Switch to ");
+    BSP_LCD_DisplayStringAtLine(9, (uint8_t*)" automatic mode   ");    
     JoystickValue = 2;  
   }
   /* JOY_DOWN is pressed: Display Automatic mode menu ########################*/
@@ -263,12 +315,13 @@ static void TFT_DisplayMenu(void)
     BSP_LCD_SetTextColor(LCD_COLOR_RED);
     /* Display message */ 
     BSP_LCD_DisplayStringAtLine(3,  (uint8_t*)"  Automatic Mode  ");
-    BSP_LCD_DisplayStringAtLine(5,  (uint8_t*)"     Selected     ");
+    BSP_LCD_DisplayStringAtLine(4,  (uint8_t*)"     Selected     ");
     
 
     JoystickValue = 1;  
     HAL_Delay(200);
   }
+
 }
 
 /**
@@ -283,6 +336,7 @@ static void TFT_DisplayImages(void)
   uint32_t filesnumbers = 0x00;
   uint32_t joystickstatus = JOY_NONE;
   uint32_t bmpcounter = 0x00;
+  uint8_t rotation = 0;
   DIR directory;
   FRESULT res;
   
@@ -312,12 +366,24 @@ static void TFT_DisplayImages(void)
   filesnumbers = Storage_GetDirectoryBitmapFiles ("/", pDirectoryFiles);    
   /* Set bitmap counter to display first image */
   bmpcounter = 1; 
+
+  /* Prepare display for portrait orientation */
+  BSP_LCD_SetRotation(0);
   
   while (1)
   {     
     /* Get JoyStick status */    
     joystickstatus = BSP_JOY_GetState();
     
+    /* Up changes display rotation for manual mode */
+    if (joystickstatus == JOY_UP)
+    {
+        rotation++;
+        BSP_LCD_Clear(LCD_COLOR_WHITE);
+        BSP_LCD_SetRotation(rotation);
+        joystickstatus = JOY_NONE;
+    }
+
     if(joystickstatus == JOY_SEL)
     {      
       JoystickValue++;

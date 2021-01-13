@@ -162,6 +162,7 @@ void     st7735_DrawVLine(uint16_t RGBCode, uint16_t Xpos, uint16_t Ypos, uint16
 uint16_t st7735_GetLcdPixelWidth(void);
 uint16_t st7735_GetLcdPixelHeight(void);
 void     st7735_DrawBitmap(uint16_t Xpos, uint16_t Ypos, uint8_t *pbmp);
+void     st7735_SetDisplayRotation(uint8_t rotation);
 
 /* LCD driver structure */
 extern LCD_DrvTypeDef   st7735_drv;
